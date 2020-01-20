@@ -1,0 +1,310 @@
+<html>
+  <head>
+    <title>Rozpoznawanie liter</title>
+    <script src="siec/neuron.js"></script>
+    <script src="siec/warstwa.js"></script>
+    <script src="siec/siec.js"></script>
+    <script src="ciagUczacy.js"></script>
+    <script src="ciagTestowy.js"></script>
+  </head>
+  <body>
+    <a class="link" href="tworzenieCiagow.html">Przejdź do tworzenia zbiorów →</a>
+    <div class="container">
+      <div class="left">
+        <span title="Warstwy ukryte">Warstwy ukryte (ilość neuronów)<br><input type="number" min="0" value="3" placeholder="1" class="w1 neurony"></span>
+        <span title="Warstwy ukryte"><input type="number"  min="0" value="0" placeholder="2" class="w2 neurony"></span>
+        <span title="Warstwy ukryte"><input type="number" min="0" value="0" placeholder="3" class="w3 neurony"></span><br><br>
+        <input type="button" value="Stwórz sieć" onclick="nowaSiec()" class="new"><br><br>
+
+        <span title="Współczynnik uczenia">Współczynnik uczenia (η) <br><input type="text" value="0.2" placeholder="Współczynnik uczenia" class="n" disabled></span><br><br>
+        <span title="Maksymalna liczba epok">Maksymalna liczba epok <br><input type="text" value="1000" placeholder="Maksymalna liczba epok" class="max" disabled></span><br><br>
+        <span title="Błąd zadany">Błąd zadany <br><input type="text" value="0.1" placeholder="Błąd zadany" class="e" disabled></span><br><br>
+        <input type="button" value="Ucz sieć" onclick="uczSiec()" class="learn" disabled><br><br>
+        <input type="button" value="Testuj sieć" onclick="testujSiec()" class="test" disabled><br><br>
+      </div>
+      <div class="right">
+        <input type="radio" name="funkcja" value="unipolarna" id="unipolarna" checked>
+        <label for="unipolarna">unipolarna f. aktyw.</label>
+        <input type="radio" name="funkcja" value="bipolarna" id="bipolarna">
+        <label for="bipolarna">bipolarna f. aktyw.</label>
+
+        <textarea></textarea><br><br>
+        <div class="container">
+          <div>
+            Pole do rysowania<br>
+            <canvas id="myCanvas" width="160" height="160" style="border:1px solid #000000;"></canvas>
+          </div>
+          <div class="right">
+            <br>
+            <input type="button" onclick="clearCanvas()" value="Wyczyść"><br><br>
+            <input type="button" onclick="check()" value="Sprawdź" class="check" disabled>
+            <div class="odpowiedz"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+
+<script>
+let siec = null;
+const textarea = document.querySelector('textarea');
+
+function nowaSiec() {
+  const warstwy = [parseInt(document.querySelector('.w1').value), parseInt(document.querySelector('.w2').value), parseInt(document.querySelector('.w3').value)];
+  let warstwyDoSieci = [];
+
+  warstwy.forEach(warstwa => {
+    if(warstwa > 0)
+      warstwyDoSieci.push(warstwa);
+  });
+  warstwyDoSieci.push(cu[0].out.length);
+
+  const faktyw = document.querySelector("input[name=funkcja]:checked").value;
+  siec = new Siec(cu[0].in.length, warstwyDoSieci, faktyw);
+  textarea.value = `=====Stworzono nową sieć===== \r\nwejść: ${cu[0].in.length}, wyjść: ${cu[0].out.length}, warstwy: [${warstwyDoSieci}]\r\n=======================`;
+  document.querySelector('.learn').disabled = false;
+  document.querySelector('.test').disabled = false;
+  document.querySelector('.check').disabled = false;
+  document.querySelector('.n').disabled = false;
+  document.querySelector('.max').disabled = false;
+  document.querySelector('.e').disabled = false;
+}
+
+function uczSiec() {
+  const n = document.querySelector('.n').value;
+  const e = document.querySelector('.e').value;
+  const max = document.querySelector('.max').value;
+  textarea.value += `\r\n${siec.uczSiec(n, cu, e, max)}\r\n=======================`;
+}
+
+function testujSiec() {
+  textarea.value += `\r\n${siec.testuj(ct)}\r\n=======================`;
+}
+
+var canvas = document.querySelector('#myCanvas');
+var ctx = canvas.getContext('2d');
+var pos = { x: 0, y: 0 };
+
+canvas.addEventListener('mousemove', draw);
+canvas.addEventListener('mousedown', setPosition);
+canvas.addEventListener('mouseenter', setPosition);
+
+function setPosition(e) {
+  pos.x = e.clientX;
+  pos.y = e.clientY;
+}
+
+function draw(e) {
+  if (e.buttons !== 1) return;
+
+  ctx.beginPath();
+
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#c0392b';
+
+  ctx.moveTo(pos.x-canvas.offsetLeft, pos.y-canvas.getBoundingClientRect().top);
+  setPosition(e);
+  ctx.lineTo(pos.x-canvas.offsetLeft, pos.y-canvas.getBoundingClientRect().top);
+  ctx.stroke();
+}
+
+function clearCanvas() {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
+
+function check() {
+  learningRow = []; //zainicjowanie tablicy do zapisania wartości 400 kwadratów
+  let top = 0;
+  for (let i=0; i<canvas.clientHeight; i++) { //pętla idąca po wysokości 0-8 kwadratu
+    let x = 0;
+    for (let j=0; j<canvas.clientWidth; j++) { //pęta idąca po szerokości 0-8 kwadratu
+          const p = ctx.getImageData(j, i, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) { //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            top = i;
+            x = 1;
+            break;
+          }
+    }
+    if(x) break;
+  }
+
+  let bot = 0;
+  for (let i=canvas.clientHeight; i>=0; i--) { //pętla idąca po wysokości 0-8 kwadratu
+    let x = 0;
+    for (let j=0; j<canvas.clientWidth; j++) { //pęta idąca po szerokości 0-8 kwadratu
+          const p = ctx.getImageData(j, i, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) { //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            bot = i;
+            x = 1;
+            break;
+          }
+    }
+    if(x) break;
+  }
+
+  let left = 0;
+  for (let i=0; i<canvas.clientWidth; i++) { //pętla idąca po wysokości 0-8 kwadratu
+    let x = 0;
+    for (let j=0; j<canvas.clientHeight; j++) { //pęta idąca po szerokości 0-8 kwadratu
+          const p = ctx.getImageData(i, j, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) { //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            left = i;
+            x = 1;
+            break;
+          }
+    }
+    if(x) break;
+  }
+
+  let right = 0;
+  for (let i=canvas.clientWidth; i>=0; i--) { //pętla idąca po wysokości 0-8 kwadratu
+    let x = 0;
+    for (let j=0; j<canvas.clientHeight; j++) { //pęta idąca po szerokości 0-8 kwadratu
+          const p = ctx.getImageData(i, j, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) { //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            right = i;
+            x = 1;
+            break;
+          }
+    }
+    if(x) break;
+  }
+
+  const xw = (right - left) / 12; //zmienna długości jednego kwadratu
+  const xh = (bot - top) / 12; // zmienna wysokości jednego kwadratu (w px)
+  const Pc = Math.floor(xw) * Math.floor(xh); //zmienna z polem całkowitym jednego kwadratu (w px)
+  let Pz = 0; //zmienna z polem zamalowanym jednego kwadratu (w px)
+  for (let i=0; i<12; i++) { //pętla idąca po wysokości 0-8 kwadratu
+    for (let j=0; j<12; j++) { //pęta idąca po szerokości 0-8 kwadratu
+      for (let k=0; k<Math.floor(xw); k++) { //pętla idąca po pikselach kwadratu w szerokości
+        for (let l=0; l<Math.floor(xh); l++) { //pętla idąca po pikselach kwadratu w wysokości
+          const x = left + j*xw + k; //współrzędna x aktualnego piksela
+          const y = top + i*xh + l; //współrzędna y aktualnego piksela
+          const p = ctx.getImageData(x, y, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            Pz += 1;
+        }
+      }
+      learningRow.push(Pz/Pc); //zapisanie do tablicy z kwadratami wartości zamalowania piksela
+      Pz = 0; //zresetowanie wartości zamalowania
+    }
+  }
+
+  const wyjscia = siec.oblicz_wyjscie(learningRow);
+  wyjscia.forEach((wyjscie, index) => {
+    if (wyjscia.indexOf(Math.max(...wyjscia)) === index)
+      wyjscia[index] = 1;
+    else
+      wyjscia[index] = 0;
+  })
+
+  let wynik = '';
+  if (wyjscia[0] == 1) wynik = 'b';
+  else if (wyjscia[1] == 1) wynik = 'p';
+  else wynik = 'd';
+  document.querySelector('.odpowiedz').innerHTML = wynik;
+}
+</script>
+
+<style>
+*{
+  box-sizing: border-box;
+  font-family: Tahoma, Geneva, sans-serif;
+}
+
+body{
+  padding: 0;
+  margin: 0;
+}
+
+input[type=button]:active{
+  background: rgb(203, 224, 255);
+}
+
+input[type=button]{
+  width: 100%;
+  background: linear-gradient(45deg, white, #f1f1f1);
+  border: 1px solid #969696;
+  padding: 5px;
+  font-size: 20px;
+  cursor: pointer;
+  max-width: 300px;
+}
+
+input[type=text]{
+  padding: 3px;
+  margin: 5px 0;
+  width: 100%;
+}
+
+textarea{
+  padding: 10px;
+  text-align: center;
+  height: 200px;
+  width: 300px;
+}
+
+.container{
+  display: flex;
+  justify-content: center;
+}
+
+.left, .right{
+  padding: 10px;
+}
+
+.neurony{
+  width: 40px!important;
+  text-align: center;
+  display: inline-block;
+  margin-top: 5px;
+}
+
+.link{
+  display: block;
+  text-align: center;
+  margin-bottom: 20px;
+  color: white;
+  background: #2d6eff;
+  text-decoration: none;
+  font-size: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgb(99, 99, 99);
+}
+
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+canvas{
+  cursor: crosshair;
+}
+
+.odpowiedz{
+  font-size: 40px;
+  text-align: center;
+}
+
+label{
+  background: gainsboro;
+  padding: 3px;
+  display: block;
+  font-size: 20px;
+  margin: 5px 0;
+  cursor: pointer;
+  text-align: center;
+}
+
+input[type="radio"]{
+  display: none;
+}
+
+input[type="radio"]:checked+label {
+    background:linear-gradient(45deg, #ff9595, #aebfff);
+}
+</style>

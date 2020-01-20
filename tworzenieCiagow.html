@@ -1,0 +1,310 @@
+<html>
+  <head>
+    <title>Rozpoznawanie liter</title>
+  </head>
+  <body>
+    <a class="link" href="index.html">Przejdź do tworzenia sieci →</a>
+    <div class="container">
+      <div>
+        Pole do rysowania<br>
+        <canvas id="myCanvas" width="160" height="160" style="border:1px solid #000000;"></canvas>
+      </div>
+      <div>
+        <input type="button" onclick="clearCanvas()" value="Wyczyść">
+        <input type="radio" name="letter" value="b" id="b" checked>
+        <label for="b">b</label>
+        <input type="radio" name="letter" value="p" id="p">
+        <label for="p">p</label>
+        <input type="radio" name="letter" value="d" id="d">
+        <label for="d">d</label>
+        <input type="button" onclick="saveToSet()" value="Dodaj do ciągu">
+      </div>
+    </div>
+    <div class="container2">
+      <textarea id="textarea" placeholder="Ciąg"></textarea>
+      <span class="counter"></span><br>
+      <input type="button" onclick="downloadUczacy()" value="Pobierz jako ciąg uczący*"><br>
+      <input type="button" onclick="downloadTestowy()" value="Pobierz jako ciąg testowy*"><br>
+      <span class="tip">*po pobraniu nadpisz plik w głównym katalogu projektu</span>
+    </div>
+
+  </body>
+</html>
+
+<script>
+let learningSet = [];
+const canvas = document.querySelector('#myCanvas');
+const ctx = canvas.getContext('2d');
+const counterEl = document.querySelector('.counter');
+let pos = { x: 0, y: 0 };
+let counter = 0;
+
+canvas.addEventListener('mousemove', draw);
+canvas.addEventListener('mousedown', setPosition);
+canvas.addEventListener('mouseenter', setPosition);
+
+function setPosition(e) {
+  pos.x = e.clientX;
+  pos.y = e.clientY;
+}
+
+function draw(e) {
+  if (e.buttons !== 1) return;
+
+  ctx.beginPath();
+
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#c0392b';
+
+  ctx.moveTo(pos.x-canvas.offsetLeft, pos.y-canvas.getBoundingClientRect().top);
+  setPosition(e);
+  ctx.lineTo(pos.x-canvas.offsetLeft, pos.y-canvas.getBoundingClientRect().top);
+  ctx.stroke();
+}
+
+function log() {
+  learningRow = []; //zainicjowanie tablicy do zapisania wartości 400 kwadratów
+  let top = 0;
+  for (let i=0; i<canvas.clientHeight; i++) { //pętla idąca po wysokości 0-8 kwadratu
+    let x = 0;
+    for (let j=0; j<canvas.clientWidth; j++) { //pęta idąca po szerokości 0-8 kwadratu
+          const p = ctx.getImageData(j, i, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) { //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            top = i;
+            x = 1;
+            break;
+          }
+    }
+    if(x) break;
+  }
+
+  let bot = 0;
+  for (let i=canvas.clientHeight; i>=0; i--) { //pętla idąca po wysokości 0-8 kwadratu
+    let x = 0;
+    for (let j=0; j<canvas.clientWidth; j++) { //pęta idąca po szerokości 0-8 kwadratu
+          const p = ctx.getImageData(j, i, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) { //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            bot = i;
+            x = 1;
+            break;
+          }
+    }
+    if(x) break;
+  }
+
+  let left = 0;
+  for (let i=0; i<canvas.clientWidth; i++) { //pętla idąca po wysokości 0-8 kwadratu
+    let x = 0;
+    for (let j=0; j<canvas.clientHeight; j++) { //pęta idąca po szerokości 0-8 kwadratu
+          const p = ctx.getImageData(i, j, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) { //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            left = i;
+            x = 1;
+            break;
+          }
+    }
+    if(x) break;
+  }
+
+  let right = 0;
+  for (let i=canvas.clientWidth; i>=0; i--) { //pętla idąca po wysokości 0-8 kwadratu
+    let x = 0;
+    for (let j=0; j<canvas.clientHeight; j++) { //pęta idąca po szerokości 0-8 kwadratu
+          const p = ctx.getImageData(i, j, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) { //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            right = i;
+            x = 1;
+            break;
+          }
+    }
+    if(x) break;
+  }
+
+  const xw = (right - left) / 12; //zmienna długości jednego kwadratu
+  const xh = (bot - top) / 12; // zmienna wysokości jednego kwadratu (w px)
+  const Pc = Math.floor(xw) * Math.floor(xh); //zmienna z polem całkowitym jednego kwadratu (w px)
+  let Pz = 0; //zmienna z polem zamalowanym jednego kwadratu (w px)
+  for (let i=0; i<12; i++) { //pętla idąca po wysokości 0-8 kwadratu
+    for (let j=0; j<12; j++) { //pęta idąca po szerokości 0-8 kwadratu
+      for (let k=0; k<Math.floor(xw); k++) { //pętla idąca po pikselach kwadratu w szerokości
+        for (let l=0; l<Math.floor(xh); l++) { //pętla idąca po pikselach kwadratu w wysokości
+          const x = left + j*xw + k; //współrzędna x aktualnego piksela
+          const y = top + i*xh + l; //współrzędna y aktualnego piksela
+          const p = ctx.getImageData(x, y, 1, 1).data; //zapisanie do zmiennej p wartości koloru [r, g, b] aktualnego piksela
+          if (p[0] > 0 || p[1] > 0 || p[2] > 0) //sprawdzenie czy piksel ma inny kolor niż biały, jeśli ma to zwiększenie pola zamalowanego o 1
+            Pz += 1;
+        }
+      }
+      learningRow.push(Pz/Pc); //zapisanie do tablicy z kwadratami wartości zamalowania piksela
+      Pz = 0; //zresetowanie wartości zamalowania
+    }
+  }
+  return learningRow; //zwrócenie tablicy z wartościami kwadratów
+}
+
+function clearCanvas() {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
+
+function saveToSet() {
+  learningSet.push(log()); //tworzy tablicę z wartościami kwadratów metodą log()
+  let letter = ''; //zdefiniowanie zmiennej letter
+  if (document.querySelector("input[name=letter]:checked").value=='b')
+    letter = '[1, 0, 0]'; //jeśli zaznaczona litera to 'b' to letter ma taką wartość
+  else if (document.querySelector("input[name=letter]:checked").value=='p')
+    letter = '[0, 1, 0]'; //jeśli zaznaczona litera to 'p' to letter ma taką wartość
+  else
+    letter = '[0, 0, 1]'; //jeśli zaznaczona litera to 'd' to letter ma taką wartość
+  document.querySelector('#textarea').value += `{\r\nin: [${learningSet[learningSet.length-1]}],\r\nout: ${letter}\r\n}, \r\n`; //wrzuca w odpowiedniej formie dane do pola tekstowego, (obiekt z in: i out:)
+
+  counter++; //zwiększa licznik elementów pod polem tekstowym
+  counterEl.innerHTML = counter;
+
+  clearCanvas(); //czyści obraz
+}
+
+function downloadUczacy() {
+  let data = 'const cu = [\r\n'
+  data += document.querySelector('#textarea').value;
+  data += '\r\n]'
+  var pom = document.createElement('a');
+  pom.setAttribute('href', 'data:text/plain;charset=utf-8,' +
+
+  encodeURIComponent(data));
+  pom.setAttribute('download', 'ciagUczacy.js');
+
+  pom.style.display = 'none';
+  document.body.appendChild(pom);
+
+  pom.click();
+
+  document.body.removeChild(pom);
+}
+
+function downloadTestowy() {
+  let data = 'const ct = [\r\n'
+  data += document.querySelector('#textarea').value;
+  data += ']'
+  var pom = document.createElement('a');
+  pom.setAttribute('href', 'data:text/plain;charset=utf-8,' +
+
+  encodeURIComponent(data));
+  pom.setAttribute('download', 'ciagTestowy.js');
+
+  pom.style.display = 'none';
+  document.body.appendChild(pom);
+
+  pom.click();
+
+  document.body.removeChild(pom);
+}
+
+canvas.addEventListener('dblclick', () => {
+   clearCanvas();
+});
+</script>
+
+<style>
+*{
+  box-sizing: border-box;
+  font-family: Tahoma, Geneva, sans-serif;
+}
+
+body{
+  padding: 0;
+  margin: 0;
+}
+
+input[type=button]:active{
+  background: rgb(203, 224, 255);
+}
+
+.counter{
+  display: block;
+  text-align: right;
+  width: 100%;
+  height: 15px;
+}
+
+input[type=button]{
+  width: 100%;
+  background: linear-gradient(45deg, white, #f1f1f1);
+  border: 1px solid #969696;
+  padding: 5px;
+  font-size: 20px;
+  cursor: pointer;
+  max-width: 300px;
+}
+
+input[type=text]{
+  padding: 3px;
+  margin: 5px 0;
+  width: 100%;
+}
+
+textarea{
+  padding: 10px;
+  font-size: 10px;
+  height: 150px;
+}
+
+.container{
+  display: flex;
+  justify-content: center;
+}
+
+.container2{
+  width: 300px;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  margin: auto;
+  text-align: center;
+}
+
+.container div{
+  padding: 10px;
+}
+
+canvas{
+  cursor: crosshair;
+}
+
+label{
+  background: gainsboro;
+  padding: 3px;
+  display: block;
+  font-size: 20px;
+  margin: 5px 0;
+  cursor: pointer;
+  text-align: center;
+}
+
+input[type="radio"]{
+  display: none;
+}
+
+input[type="radio"]:checked+label {
+    background:linear-gradient(45deg, #ff9595, #aebfff);
+}
+
+.link{
+  display: block;
+  text-align: center;
+  margin-bottom: 20px;
+  color: white;
+  background: #2d6eff;
+  text-decoration: none;
+  font-size: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgb(99, 99, 99);
+}
+
+.tip{
+  font-size: 12px;
+}
+</style>
